@@ -1,0 +1,216 @@
+# Example Deadline JobFinished Event Script (Conceptual)
+# This script runs in the context of the Deadline Event Plugin system.
+# Consult Deadline documentation for the exact API to get job details.
+
+import sys
+import os
+import subprocess # Or requests, or a dedicated 2dview Python module
+# import Deadline.Scripting # Example - Check Deadline docs for actual modules
+
+def GetDeadlineJobInfo(job_id, property_name):
+    """
+    Placeholder function: Simulates getting job info from Deadline.
+    Replace with actual Deadline API calls.
+    Requires 'deadlinecommand' or Deadline's internal scripting API.
+    """
+    # Example using deadlinecommand (adjust path and arguments)
+    try:
+        cmd = ['/path/to/deadlinecommand', '-GetJob', job_id, property_name]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return result.stdout.strip()
+    except Exception as e:
+        print(f"Error getting Deadline job info '{property_name}' for job {job_id}: {e}")
+        return None
+
+def GetDeadlineJobExtraInfo(job_id, key_name):
+    """ Placeholder function for Extra Info - Replace with actual API """
+    # Example using deadlinecommand
+    try:
+        cmd = ['/path/to/deadlinecommand', '-GetJobProperty', job_id, f'ExtraInfoKeyValue{key_name}']
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return result.stdout.strip().split('=')[-1] # Get value after 'key='
+    except Exception as e:
+        print(f"Error getting Deadline job extra info '{key_name}' for job {job_id}: {e}")
+        return None
+
+def PublishTo2dview(publish_data):
+    """
+    *** THIS IS THE CRITICAL PART YOU NEED TO IMPLEMENT ***
+    Interacts with 2dview's API (CLI, Python Lib, REST API).
+    """
+    print(f"Attempting to publish to 2dview with data: {publish_data}")
+
+    # --- Scenario 1: 2dview has a Command Line Interface (CLI) ---
+    try:
+        twodview_exe = '/path/to/2dview/cli_tool' # *** Replace with actual path ***
+        cmd = [
+            twodview_exe,
+            '--publish', # Hypothetical arguments
+            '--project', publish_data['project'],
+            '--task', publish_data['task_id'],
+            '--asset', publish_data['asset_name'],
+            '--comment', publish_data['comment'],
+            '--file-path', publish_data['render_path'], # Make sure path format is correct
+            '--first-frame', str(publish_data['first_frame']),
+            '--last-frame', str(publish_data['last_frame'])
+        ]
+        print(f"Running command: {' '.join(cmd)}")
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        print("2dview CLI Success:", result.stdout)
+        return True
+    except FileNotFoundError:
+         print(f"Error: 2dview executable not found at '{twodview_exe}'")
+         return False
+    except subprocess.CalledProcessError as e:
+        print(f"Error calling 2dview CLI: {e}")
+        print("Stderr:", e.stderr)
+        return False
+    except Exception as e:
+        print(f"An unexpected error occurred during 2dview CLI interaction: {e}")
+        return False
+
+    # --- Scenario 2: 2dview has a Python API ---
+    # try:
+    #     import twodview_api # Hypothetical module name
+    #     # Ensure this module is available in Python environment where the script runs
+    #     client = twodview_api.connect(server='http://2dview-server') # Hypothetical
+    #     result = client.publish(
+    #         project=publish_data['project'],
+    #         task=publish_data['task_id'],
+    #         asset=publish_data['asset_name'],
+    #         comment=publish_data['comment'],
+    #         file_path=publish_data['render_path'], # Check required format
+    #         start_frame=publish_data['first_frame'],
+    #         end_frame=publish_data['last_frame']
+    #     )
+    #     print(f"2dview Python API Success: {result}")
+    #     return True
+    # except ImportError:
+    #     print("Error: 'twodview_api' module not found.")
+    #     return False
+    # except Exception as e:
+    #     print(f"Error interacting with 2dview Python API: {e}")
+    #     return False
+
+    # --- Scenario 3: 2dview has a REST API ---
+    # try:
+    #     import requests
+    #     api_url = 'http://2dview-server/api/publish' # Hypothetical
+    #     headers = {'Authorization': 'Bearer YOUR_API_KEY'} # Handle secrets securely
+    #     payload = {
+    #         'project': publish_data['project'],
+    #         'task': publish_data['task_id'],
+    #         'asset': publish_data['asset_name'],
+    #         'comment': publish_data['comment'],
+    #         'file_path': publish_data['render_path'],
+    #         'start_frame': publish_data['first_frame'],
+    #         'end_frame': publish_data['last_frame']
+    #     }
+    #     response = requests.post(api_url, headers=headers, json=payload)
+    #     response.raise_for_status() # Check for HTTP errors
+    #     print(f"2dview REST API Success: {response.json()}")
+    #     return True
+    # except ImportError:
+    #     print("Error: 'requests' module not found. Please install it.")
+    #     return False
+    # except requests.exceptions.RequestException as e:
+    #     print(f"Error calling 2dview REST API: {e}")
+    #     return False
+    # except Exception as e:
+    #     print(f"An unexpected error occurred during 2dview REST API interaction: {e}")
+    #     return False
+
+
+# --- Main Event Script Logic ---
+def __main__(*args): # Deadline event scripts often use __main__
+    print("Running Custom JobFinished Event Script...")
+
+    # Deadline passes job object or job ID - check Deadline docs
+    # Let's assume job ID is passed or accessible
+    job_id = None
+    # You need the actual Deadline API call here to get the Job object or ID
+    # Example: job = DeadlinePlugin.GetJob() # Fictional Deadline API
+    # if job:
+    #     job_id = job.JobId
+
+    # If Job ID is not available, try getting from args if passed
+    if not job_id and len(args) > 0:
+         # Check how Deadline passes context to event plugins
+         # This is just a guess:
+         potential_job_object = args[0]
+         if hasattr(potential_job_object, 'JobId'):
+             job_id = potential_job_object.JobId
+         elif isinstance(potential_job_object, str): # Maybe it's just the ID string?
+             job_id = potential_job_object
+
+    if not job_id:
+         print("Error: Could not determine Job ID.")
+         return # Cannot proceed
+
+    print(f"Processing Job ID: {job_id}")
+
+    # Check if the job actually succeeded (important!)
+    job_status = GetDeadlineJobInfo(job_id, 'JobStatus')
+    if job_status != 'Completed':
+        print(f"Job {job_id} did not complete successfully (Status: {job_status}). Skipping publish.")
+        return
+
+    # Get necessary info using placeholder functions (replace with real API calls)
+    output_dirs = GetDeadlineJobInfo(job_id, 'JobOutputDirectories') # Might be multiple
+    output_files = GetDeadlineJobInfo(job_id, 'JobOutputFileNames') # Might be multiple
+    frames_str = GetDeadlineJobInfo(job_id, 'JobFrames') # e.g., "1001-1050"
+
+    # --- Parse and Prepare Data ---
+    # This part needs careful handling based on how Deadline stores paths and frames
+    # Assuming single output for simplicity here
+    if not output_dirs or not output_files or not frames_str:
+        print("Error: Could not retrieve necessary job output info.")
+        return
+
+    # Simple example: taking the first output directory/file
+    render_dir = output_dirs.split(';')[0] # Handle multiple if necessary
+    render_file_pattern = output_files.split(';')[0] # e.g., render.####.exr
+    render_path = os.path.join(render_dir, render_file_pattern).replace('\\', '/')
+
+    try:
+        # Basic frame parsing
+        start_frame = int(frames_str.split('-')[0])
+        end_frame = int(frames_str.split('-')[-1])
+    except ValueError:
+        print(f"Error: Could not parse frame range '{frames_str}'.")
+        return
+
+    # Get metadata passed from Nuke via ExtraInfo
+    view_project = GetDeadlineJobExtraInfo(job_id, 'ViewProject')
+    view_task_id = GetDeadlineJobExtraInfo(job_id, 'ViewTaskID')
+    view_asset_name = GetDeadlineJobExtraInfo(job_id, 'ViewAssetName')
+    view_comment = GetDeadlineJobExtraInfo(job_id, 'ViewPublishComment')
+
+    if not all([view_project, view_task_id, view_asset_name]):
+         print("Error: Missing required metadata (ViewProject, ViewTaskID, ViewAssetName) in Job Extra Info.")
+         return
+
+    # Prepare data payload for 2dview
+    publish_data = {
+        'project': view_project,
+        'task_id': view_task_id,
+        'asset_name': view_asset_name,
+        'comment': view_comment or f"Auto-published from Deadline job {job_id}",
+        'render_path': render_path, # Ensure this path is accessible from where the script runs
+        'first_frame': start_frame,
+        'last_frame': end_frame,
+        'job_id': job_id
+    }
+
+    # Call the function to interact with 2dview
+    success = PublishTo2dview(publish_data)
+
+    if success:
+        print(f"Successfully initiated publish to 2dview for job {job_id}.")
+    else:
+        print(f"Failed to publish to 2dview for job {job_id}.")
+
+# Standard entry point for Deadline event plugins might be different, check docs
+if __name__ == "__main__":
+    # Pass command-line arguments if Deadline provides them this way
+    __main__(*sys.argv[1:])
