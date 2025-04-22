@@ -1,0 +1,78 @@
+#include <iostream>
+#include <vector>
+#include <unordered_map>
+#include <memory>
+#include <cstring>
+
+const size_t TOTAL_RAM_MB = 512;
+const size_t MB = 1024 * 1024;
+
+class MemoryBlock {
+public:
+    void* address;
+    size_t size;
+    std::string tag;
+
+    MemoryBlock(void* addr, size_t sz, const std::string& t)
+        : address(addr), size(sz), tag(t) {}
+};
+
+class MemoryManager {
+    std::unique_ptr<char[]> memory;
+    size_t totalSize;
+    size_t used;
+    std::unordered_map<std::string, MemoryBlock> allocations;
+
+public:
+    MemoryManager(size_t sizeMB)
+        : totalSize(sizeMB * MB), used(0) {
+        memory = std::make_unique<char[]>(totalSize);
+        std::cout << "Engine Memory Initialized: " << sizeMB << " MB\n";
+    }
+
+    bool allocate(const std::string& tag, size_t sizeMB) {
+        size_t sizeBytes = sizeMB * MB;
+        if (used + sizeBytes > totalSize) {
+            std::cerr << "ERROR: Not enough memory to allocate '" << tag << "'\n";
+            return false;
+        }
+
+        void* ptr = memory.get() + used;
+        allocations[tag] = MemoryBlock(ptr, sizeBytes, tag);
+        used += sizeBytes;
+
+        std::cout << "Allocated " << sizeMB << " MB for '" << tag << "'\n";
+        return true;
+    }
+
+    void free(const std::string& tag) {
+        if (allocations.find(tag) != allocations.end()) {
+            used -= allocations[tag].size;
+            std::cout << "Freed memory for '" << tag << "'\n";
+            allocations.erase(tag);
+        } else {
+            std::cerr << "WARNING: No allocation found for '" << tag << "'\n";
+        }
+    }
+
+    void status() {
+        std::cout << "Memory Usage: " << used / MB << " MB / "
+                  << totalSize / MB << " MB\n";
+        for (const auto& [tag, block] : allocations) {
+            std::cout << " - " << tag << ": " << block.size / MB << " MB\n";
+        }
+    }
+};
+
+int main() {
+    MemoryManager engineMemory(TOTAL_RAM_MB);
+
+    engineMemory.allocate("RenderModule", 64);  // Simulated application
+    engineMemory.allocate("SceneLoader", 128);
+    engineMemory.status();
+
+    engineMemory.free("RenderModule");
+    engineMemory.status();
+
+    return 0;
+}
